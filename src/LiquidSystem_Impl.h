@@ -28,34 +28,38 @@ SOFTWARE.
 */
 
 #include "LiquidMenu.h"
-
-LiquidSystem::LiquidSystem(uint8_t startingMenu)
+#pragma once
+template <class Disp>
+LiquidSystem<Disp>::LiquidSystem(uint8_t startingMenu)
 	: _menuCount(0), _currentMenu(startingMenu - 1) {
 
 }
 
-LiquidSystem::LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
+template <class Disp>
+LiquidSystem<Disp>::LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
                            uint8_t startingMenu)
 	: LiquidSystem(startingMenu) {
 	add_menu(liquidMenu1);
 	add_menu(liquidMenu2);
 }
 
-LiquidSystem::LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
-                           LiquidMenu &liquidMenu3, uint8_t startingMenu)
+template <class Disp>
+LiquidSystem<Disp>::LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
+                           LiquidMenu<Disp> &liquidMenu3, uint8_t startingMenu)
 	: LiquidSystem(liquidMenu1, liquidMenu2, startingMenu) {
 	add_menu(liquidMenu3);
 }
 
-LiquidSystem::LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
-                           LiquidMenu &liquidMenu3, LiquidMenu &liquidMenu4,
+template <class Disp>
+LiquidSystem<Disp>::LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
+                           LiquidMenu<Disp> &liquidMenu3, LiquidMenu<Disp> &liquidMenu4,
                            uint8_t startingMenu)
 	: LiquidSystem(liquidMenu1, liquidMenu2, liquidMenu3, startingMenu) {
 	add_menu(liquidMenu4);
 }
 
-
-bool LiquidSystem::add_menu(LiquidMenu &liquidMenu) {
+template <class Disp>
+bool LiquidSystem<Disp>::add_menu(LiquidMenu<Disp> &liquidMenu) {
 	// print_me((uintptr_t)this);
 	print_me(reinterpret_cast<uintptr_t>(this));
 	if (_menuCount < MAX_MENUS) {
@@ -69,8 +73,8 @@ bool LiquidSystem::add_menu(LiquidMenu &liquidMenu) {
 	return false;
 }
 
-
-bool LiquidSystem::change_menu(LiquidMenu &p_liquidMenu) {
+template <class Disp>
+bool LiquidSystem<Disp>::change_menu(LiquidMenu<Disp> &p_liquidMenu) {
 	// _p_liquidMenu[_currentMenu]->_p_liquidCrystal->clear();
 	for (uint8_t m = 0; m < _menuCount; m++) {
 		// if ((uintptr_t)&p_liquidMenu == (uintptr_t) & (*_p_liquidMenu[m])) {
@@ -86,77 +90,96 @@ bool LiquidSystem::change_menu(LiquidMenu &p_liquidMenu) {
 	return false;
 }
 
-LiquidScreen* LiquidSystem::get_currentScreen() const {
+template <class Disp>
+LiquidScreen<Disp>* LiquidSystem<Disp>::get_currentScreen() const {
 	return _p_liquidMenu[_currentMenu]->get_currentScreen();
 }
 
-void LiquidSystem::next_screen() {
+template <class Disp>
+void LiquidSystem<Disp>::next_screen() {
 	_p_liquidMenu[_currentMenu]->next_screen();
 }
 
-void LiquidSystem::operator++() {
+template <class Disp>
+void LiquidSystem<Disp>::operator++() {
 	next_screen();
 }
 
-void LiquidSystem::operator++(int) {
+template <class Disp>
+void LiquidSystem<Disp>::operator++(int) {
 	next_screen();
 }
 
-void LiquidSystem::previous_screen() {
+template <class Disp>
+void LiquidSystem<Disp>::previous_screen() {
 	_p_liquidMenu[_currentMenu]->previous_screen();
 }
 
-void LiquidSystem::operator--() {
+template <class Disp>
+void LiquidSystem<Disp>::operator--() {
 	previous_screen();
 }
 
-void LiquidSystem::operator--(int) {
+template <class Disp>
+void LiquidSystem<Disp>::operator--(int) {
 	previous_screen();
 }
 
-bool LiquidSystem::change_screen(uint8_t number) {
+template <class Disp>
+bool LiquidSystem<Disp>::change_screen(uint8_t number) {
 	return _p_liquidMenu[_currentMenu]->change_screen(number);
 }
 
-bool LiquidSystem::change_screen(LiquidScreen &p_liquidScreen) {
+template <class Disp>
+bool LiquidSystem<Disp>::change_screen(LiquidScreen<Disp> &p_liquidScreen) {
 	return _p_liquidMenu[_currentMenu]->change_screen(p_liquidScreen);
 }
 
-bool LiquidSystem::operator=(uint8_t number) {
+template <class Disp>
+bool LiquidSystem<Disp>::operator=(uint8_t number) {
 	return change_screen(number);
 }
 
-bool LiquidSystem::operator=(LiquidScreen &p_liquidScreen) {
+template <class Disp>
+bool LiquidSystem<Disp>::operator=(LiquidScreen<Disp> &p_liquidScreen) {
 	return change_screen(p_liquidScreen);
 }
 
-void LiquidSystem::switch_focus(bool forward) {
+template <class Disp>
+void LiquidSystem<Disp>::switch_focus(bool forward) {
 	_p_liquidMenu[_currentMenu]->switch_focus(forward);
 }
 
-bool LiquidSystem::set_focusPosition(Position position) {
+template <class Disp>
+bool LiquidSystem<Disp>::set_focusPosition(Position position) {
 	return _p_liquidMenu[_currentMenu]->set_focusPosition(position);
 }
 
-bool LiquidSystem::set_focusSymbol(Position position, uint8_t symbol[8]) {
+template <class Disp>
+bool LiquidSystem<Disp>::set_focusSymbol(Position position, uint8_t symbol[8]) {
 	return _p_liquidMenu[_currentMenu]->set_focusSymbol(position, symbol);
 }
 
-bool LiquidSystem::is_callable(uint8_t number) const {
-	return _p_liquidMenu[_currentMenu]->call_function(number);
+
+template <class Disp>
+bool LiquidSystem<Disp>::set_focusGlyph(Position position, uint8_t glyph) {
+    return _p_liquidMenu[_currentMenu]->set_focusSymbol(position, glyph);
 }
 
-bool LiquidSystem::call_function(uint8_t number) const {
+template <class Disp>
+bool LiquidSystem<Disp>::call_function(uint8_t number) const {
 	bool returnValue = _p_liquidMenu[_currentMenu]->call_function(number);
 	_p_liquidMenu[_currentMenu]->_p_liquidCrystal->clear();
 	update();
 	return returnValue;
 }
 
-void LiquidSystem::update() const {
+template <class Disp>
+void LiquidSystem<Disp>::update() const {
 	_p_liquidMenu[_currentMenu]->update();
 }
 
-void LiquidSystem::softUpdate() const {
+template <class Disp>
+void LiquidSystem<Disp>::softUpdate() const {
 	_p_liquidMenu[_currentMenu]->softUpdate();
 }

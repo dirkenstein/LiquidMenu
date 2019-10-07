@@ -28,33 +28,39 @@ SOFTWARE.
 */
 
 #include "LiquidMenu.h"
+#pragma once
 
-LiquidScreen::LiquidScreen()
+template <class Disp>
+LiquidScreen<Disp>::LiquidScreen()
 	: _lineCount(0), _focus(0), _hidden(false) {}
 
-LiquidScreen::LiquidScreen(LiquidLine &liquidLine)
+template <class Disp>
+LiquidScreen<Disp>::LiquidScreen(LiquidLine<Disp> &liquidLine)
 	: LiquidScreen() {
 	add_line(liquidLine);
 }
-
-LiquidScreen::LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2)
+template <class Disp>
+LiquidScreen<Disp>::LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2)
 	: LiquidScreen(liquidLine1) {
 	add_line(liquidLine2);
 }
 
-LiquidScreen::LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2,
-                           LiquidLine &liquidLine3)
+template <class Disp>
+LiquidScreen<Disp>::LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2,
+                           LiquidLine<Disp> &liquidLine3)
 	: LiquidScreen(liquidLine1, liquidLine2) {
 	add_line(liquidLine3);
 }
 
-LiquidScreen::LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2,
-                           LiquidLine &liquidLine3, LiquidLine &liquidLine4)
+template <class Disp>
+LiquidScreen<Disp>::LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2,
+                           LiquidLine<Disp> &liquidLine3, LiquidLine<Disp> &liquidLine4)
 	: LiquidScreen(liquidLine1, liquidLine2, liquidLine3) {
 	add_line(liquidLine4);
 }
 
-bool LiquidScreen::add_line(LiquidLine &liquidLine) {
+template <class Disp>
+bool LiquidScreen<Disp>::add_line(LiquidLine<Disp> &liquidLine) {
 	print_me(reinterpret_cast<uintptr_t>(this));
 	if (_lineCount < MAX_LINES) {
 		_p_liquidLine[_lineCount] = &liquidLine;
@@ -74,7 +80,8 @@ bool LiquidScreen::add_line(LiquidLine &liquidLine) {
 	return false;
 }
 
-bool LiquidScreen::set_focusPosition(Position position) {
+template <class Disp>
+bool LiquidScreen<Disp>::set_focusPosition(Position position) {
 	print_me(reinterpret_cast<uintptr_t>(this));
 	if (position == Position::CUSTOM) {
 		DEBUGLN(F("Can't set focus position to 'CUSTOM' for the whole screen at once"));
@@ -88,31 +95,34 @@ bool LiquidScreen::set_focusPosition(Position position) {
 	}
 }
 
-void LiquidScreen::set_displayLineCount(uint8_t lines) {
+template <class Disp>
+void LiquidScreen<Disp>::set_displayLineCount(uint8_t lines)
+{
 	_displayLineCount = lines;
 }
 
-void LiquidScreen::hide(bool hide) {
+template <class Disp>
+void LiquidScreen<Disp>::hide(bool hide) {
 	_hidden = hide;
 }
 
-void LiquidScreen::print(DisplayClass *p_liquidCrystal) const {
+template <class Disp>
+void LiquidScreen<Disp>::print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocusGlyphs[][GLYPH_SIZE]) const {
 	uint8_t lOffset = 0;
 	uint8_t displayLineCount = _displayLineCount;
-	if (displayLineCount == 0) {
+	if (displayLineCount == 0)
 		displayLineCount = _lineCount;
-	} else if (displayLineCount > _lineCount) {
+	else if (displayLineCount > _lineCount)
 		displayLineCount = _lineCount;
-	}
 	DEBUG("MaxLine: ");
 	DEBUG(displayLineCount);
 	DEBUG("\n");
 
-	if (_focus >= displayLineCount) {
+	if (_focus >= displayLineCount)
+	{
 		lOffset = (_focus - displayLineCount) + 1;
-		if ((displayLineCount + lOffset) > _lineCount) {
+		if ((displayLineCount + lOffset) > _lineCount)
 			lOffset = (_lineCount - displayLineCount);
-		}
 	}
 	uint8_t offsetRow = 0;
 	for (uint8_t l = lOffset; l < displayLineCount + lOffset; l++) {
@@ -124,15 +134,15 @@ void LiquidScreen::print(DisplayClass *p_liquidCrystal) const {
 			DEBUG(F("|   -->"));
 		}
 		DEBUG(F("\tLine ")); DEBUG(l);
-		if (displayLineCount < _lineCount) {
+		if (displayLineCount < _lineCount)
 			_p_liquidLine[l]->_row = offsetRow;
-		}
-		_p_liquidLine[l]->print(p_liquidCrystal, focus);
+		_p_liquidLine[l]->print(p_liquidCrystal, focusGlyphs, customFocusGlyphs, focus);
 		offsetRow++;
 	}
 }
 
-void LiquidScreen::switch_focus(bool forward) {
+template <class Disp>
+void LiquidScreen<Disp>::switch_focus(bool forward) {
 	print_me(reinterpret_cast<uintptr_t>(this));
 	do {
 		if (forward) {
@@ -156,14 +166,8 @@ void LiquidScreen::switch_focus(bool forward) {
 	DEBUG(F("Focus switched to ")); DEBUGLN(_focus);
 }
 
-bool LiquidScreen::is_callable(uint8_t number) const {
-	if (_focus != _lineCount) {
-		return _p_liquidLine[_focus]->is_callable(number);
-	}
-	return false;
-}
-
-bool LiquidScreen::call_function(uint8_t number) const {
+template <class Disp>
+bool LiquidScreen<Disp>::call_function(uint8_t number) const {
 	if (_focus != _lineCount) {
 		return _p_liquidLine[_focus]->call_function(number);
 	}

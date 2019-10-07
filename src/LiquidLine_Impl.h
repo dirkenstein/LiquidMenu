@@ -28,15 +28,62 @@ Contains the LiquidLine class definition.
 */
 
 #include "LiquidMenu.h"
+#include <Arduino.h>
+#pragma once
 
-void print_me(uintptr_t address) {
-	DEBUG(F("Line (0x")); DEBUG2(address, OCT); DEBUG(F("): "));
-	return;
-	address = address;
+//SFINAE test for createChar
+template <typename T>
+class HasCreateChar
+{
+private:
+    typedef char YesType[1];
+    typedef char NoType[2];
+    
+    template <typename C> static YesType& test( decltype(&C::createChar) ) ;
+    template <typename C> static NoType& test(...);
+    
+    
+public:
+    enum { value = sizeof(test<T>(0)) == sizeof(YesType) };
+};
+
+template<typename T>
+typename std::enable_if<HasCreateChar<T>::value, void>::type
+CallCreateChar(T * t, uint8_t c, uint8_t g[]) {
+    /* something when T has toString ... */
+    t->createChar( c, g);
+    return;
 }
 
+template <typename T>
+class HasDrawTile
+{
+private:
+    typedef char YesType[1];
+    typedef char NoType[2];
+    
+    template <typename C> static YesType& test( decltype(&C::drawTile) ) ;
+    template <typename C> static NoType& test(...);
+    
+    
+public:
+    enum { value = sizeof(test<T>(0)) == sizeof(YesType) };
+};
 
-bool LiquidLine::attach_function(uint8_t number, void (*function)(void)) {
+
+template<typename T>
+typename std::enable_if<HasDrawTile<T>::value, void>::type
+CallDrawTile(T *t, uint8_t x, uint8_t y, int cnt, const uint8_t *tile_ptr) {
+    /* something when T has toString ... */
+    t->drawTile( x,  y,  cnt, tile_ptr);
+    return;
+}
+
+void CallCreateChar(...);
+void CallDrawTile(...);
+
+template <class Disp>
+bool LiquidLine<Disp>::attach_function(uint8_t number, void (*function)(void)) {
 	print_me(reinterpret_cast<uintptr_t>(this));
 	if (number <= MAX_FUNCTIONS) {
 		_function[number - 1] = function;
@@ -50,12 +97,13 @@ bool LiquidLine::attach_function(uint8_t number, void (*function)(void)) {
 	}
 }
 
-void LiquidLine::set_decimalPlaces(uint8_t decimalPlaces)
+template <class Disp>
+void LiquidLine<Disp>::set_decimalPlaces(uint8_t decimalPlaces)
 {
 	_floatDecimalPlaces = decimalPlaces;
 }
-
-bool LiquidLine::set_focusPosition(Position position, uint8_t column, uint8_t row) {
+template <class Disp>
+bool LiquidLine<Disp>::set_focusPosition(Position position, uint8_t column, uint8_t row) {
 	print_me(reinterpret_cast<uintptr_t>(this));
 	if (position <= Position::CUSTOM) {
 		_focusPosition = position;
@@ -73,8 +121,8 @@ bool LiquidLine::set_focusPosition(Position position, uint8_t column, uint8_t ro
 		return false;
 	}
 }
-
-bool LiquidLine::set_asGlyph(uint8_t number) {
+template <class Disp>
+bool LiquidLine<Disp>::set_asGlyph(uint8_t number) {
 	uint8_t index = number - 1;
 	if ( (index < MAX_VARIABLES) && (_variableType[index] == DataType::UINT8_T) ) {
 		_variableType[index] = DataType::GLYPH;
@@ -85,8 +133,8 @@ bool LiquidLine::set_asGlyph(uint8_t number) {
 		return false;
 	}
 }
-
-bool LiquidLine::set_asProgmem(uint8_t number) {
+template <class Disp>
+bool LiquidLine<Disp>::set_asProgmem(uint8_t number) {
 	uint8_t index = number - 1;
 	if ((index < MAX_VARIABLES) && (_variableType[index] == DataType::CONST_CHAR_PTR)) {
 		_variableType[index] = DataType::PROG_CONST_CHAR_PTR;
@@ -98,8 +146,8 @@ bool LiquidLine::set_asProgmem(uint8_t number) {
 		return false;
 	}
 }
-
-void LiquidLine::print(DisplayClass *p_liquidCrystal, bool isFocused) {
+template <class Disp>
+void LiquidLine<Disp>::print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocusGlyphs[][GLYPH_SIZE], bool isFocused) {
 	p_liquidCrystal->setCursor(_column, _row);
 	DEBUG(F(" (")); DEBUG(_column); DEBUG(F(", ")); DEBUG(_row); DEBUGLN(F(")"));
 
@@ -107,13 +155,34 @@ void LiquidLine::print(DisplayClass *p_liquidCrystal, bool isFocused) {
 	for (uint8_t v = 0; v < MAX_VARIABLES; v++) {
 		print_variable(p_liquidCrystal, v);
 	}
+    
 	DEBUGLN();
-
+    //Serial.print(F("CreateChar ")); Serial.println(HasCreateChar<Disp>::value);
+    //Serial.print(F("DrawTile ")); Serial.println(HasDrawTile<Disp>::value);
 	if (isFocused) {
 		DEBUG(F("\t\t<Focus position: "));
 		switch (_focusPosition) {
 		case Position::RIGHT: {
-			p_liquidCrystal->write((uint8_t)15);
+            uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::RIGHT) ];
+            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
+            if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile (g);
+
+                    CallDrawTile(p_liquidCrystal, p_liquidCrystal->tx, p_liquidCrystal->ty, 1, rot);
+                    //p_liquidCrystal->drawTile(p_liquidCrystal->tx, p_liquidCrystal->ty, 1, g);
+                    delete rot;
+
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
 			DEBUGLN(F("right>"));
 			//p_liquidCrystal->print(NOTHING);
 			break;
@@ -121,24 +190,118 @@ void LiquidLine::print(DisplayClass *p_liquidCrystal, bool isFocused) {
 		case Position::LEFT: {
 			//p_liquidCrystal->print(NOTHING);
 			p_liquidCrystal->setCursor(_column - 1, _row);
-			p_liquidCrystal->write((uint8_t)14);
+            uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::LEFT) ];
+            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)];
+            if (c == static_cast<uint8_t>(FocusIndicator::LEFT)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+                    
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile (g);
+                    CallDrawTile(p_liquidCrystal, _column -1, _row, 1, rot);
+                    //p_liquidCrystal->drawTile(_column -1, _row, 1, g);
+                    delete rot;
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
 			DEBUGLN(F("left>"));
 			break;
 		} //case LEFT
+        case Position::LEFTRIGHT: {
+            uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::RIGHT) ];
+            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
+            if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+                    
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile (g);
+                    CallDrawTile(p_liquidCrystal, p_liquidCrystal->tx, p_liquidCrystal->ty, 1, rot);
+                    //p_liquidCrystal->drawTile(p_liquidCrystal->tx, p_liquidCrystal->ty, 1, g);
+                    delete rot;
+                    
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
+            //p_liquidCrystal->print(NOTHING);
+            p_liquidCrystal->setCursor(_column - 1, _row);
+            c = focusGlyphs[static_cast<uint8_t>(Position::LEFT) ];
+            g = customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)];
+            if (c == static_cast<uint8_t>(FocusIndicator::LEFT)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+                    
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile (g);
+                    CallDrawTile(p_liquidCrystal, _column -1, _row, 1, rot);
+                    //p_liquidCrystal->drawTile(_column -1, _row, 1, g);
+                    delete rot;
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
+            DEBUGLN(F("leftright>"));
+            break;
+        } //case LEFTRIGHT
 		case Position::CUSTOM: {
 			//p_liquidCrystal->print(NOTHING);
 			p_liquidCrystal->setCursor(_focusColumn, _focusRow);
-			p_liquidCrystal->write((uint8_t)13);
-			DEBUGLN(F("custom (")); DEBUG(_focusColumn);
+            uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::CUSTOM) ];
+            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::CUSTOM)];
+
+            if (c == static_cast<uint8_t>(FocusIndicator::CUSTOM)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+                    
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile (g);
+                    CallDrawTile(p_liquidCrystal, _focusColumn, _focusRow, 1, rot);
+                    //p_liquidCrystal->drawTile( _focusColumn, _focusRow, 1, g);
+                    delete rot;
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
+            DEBUGLN(F("custom (")); DEBUG(_focusColumn);
 			DEBUG(F(", ")); DEBUG(_focusRow); DEBUGLN(F(")>"));
 			break;
 		} //case CUSTOM
 		default: {
 			DEBUG(F("invalid (")); DEBUG((uint8_t)_focusPosition);
 			DEBUGLN(F("), switching to default>"));
+            uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::RIGHT) ];
+            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
 			_focusPosition = Position::NORMAL;
-			p_liquidCrystal->write((uint8_t)15);
-			//p_liquidCrystal->print(NOTHING);
+            if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
+                if(HasCreateChar<Disp>::value) {
+                    CallCreateChar(p_liquidCrystal, c, g);
+                    p_liquidCrystal->write(c);
+                    
+                } else if (HasDrawTile<Disp>::value) {
+                    uint8_t * rot = rotTile(g);
+                    CallDrawTile(p_liquidCrystal, p_liquidCrystal->tx, p_liquidCrystal->ty, 1, rot);
+                    delete rot;
+                } else {
+                    p_liquidCrystal->write(c);
+                }
+            } else {
+                p_liquidCrystal->write(c);
+            }
+            //p_liquidCrystal->print(NOTHING);
 			break;
 		} //default
 		} //switch (_focusPosition)
@@ -147,7 +310,8 @@ void LiquidLine::print(DisplayClass *p_liquidCrystal, bool isFocused) {
 	}
 }
 
-void LiquidLine::print_variable(DisplayClass *p_liquidCrystal, uint8_t number) {
+template <class Disp>
+void LiquidLine<Disp>::print_variable(Disp *p_liquidCrystal, uint8_t number) {
 	switch (_variableType[number]) {
 
     // Variables -----
@@ -363,12 +527,8 @@ void LiquidLine::print_variable(DisplayClass *p_liquidCrystal, uint8_t number) {
 	DEBUG(F(" "));
 }
 
-bool LiquidLine::is_callable(uint8_t number) const {
-	if (_function[number - 1]) return true;
-	else return false;
-}
-
-bool LiquidLine::call_function(uint8_t number) const {
+template <class Disp>
+bool LiquidLine<Disp>::call_function(uint8_t number) const {
 	if (_function[number - 1]) {
 		(*_function[number - 1])();
 		return true;

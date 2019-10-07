@@ -28,7 +28,7 @@ Include file for LiquidMenu library.
 
 @author Vasil Kalchev
 @date 2016
-@version 1.5.0
+@version 1.4.0
 @copyright The MIT License
 
 @todo: Change/Remove variables/screens/menus maybe
@@ -41,7 +41,7 @@ Include file for LiquidMenu library.
 
 #include <stdint.h>
 #if defined(__AVR__)
-# include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,19 +49,21 @@ Include file for LiquidMenu library.
 #include "LiquidMenu_config.h"
 #include "LiquidMenu_debug.h"
 
-
-#if LIQUIDMENU_LIBRARY == LiquidCrystal_LIBRARY
-# pragma message ("LiquidMenu: Selected 'LiquidCrystal' (parallel) library. Edit 'LiquidMenu_config.h' file to change it.")
-#elif LIQUIDMENU_LIBRARY == LiquidCrystal_I2C_LIBRARY
-# pragma message ("LiquidMenu: Selected 'LiquidCrystal_I2C' (I2C) library. Edit 'LiquidMenu_config.h' file to change it.")
+#if I2C
+#include <LiquidCrystal_I2C.h>
+#define DisplayClass LiquidCrystal_I2C
+#pragma message ("LiquidMenu: Configured for I2C. Edit 'LiquidMenu_config.h' file to change it.")
+#elif PARALLEL
+#include <LiquidCrystal.h>
+#define DisplayClass LiquidCrystal
+#pragma message ("LiquidMenu: Configured for Parallel. Edit 'LiquidMenu_config.h' file to change it.")
 #else
-# pragma message ("LiquidMenu: Selected custom library. Edit 'LiquidMenu_config.h' file to change it.")
+#pragma message ("LiquidMenu: Configured for external. Edit 'LiquidMenu_config.h' file to change it.")
 #endif
 
 #if LIQUIDMENU_DEBUG
-# warning "LiquidMenu: Debugging messages are enabled."
+#warning "LiquidMenu: Debugging messages are enabled."
 #endif
-
 
 typedef bool (*boolFnPtr)();
 typedef int8_t (*int8tFnPtr)();
@@ -76,7 +78,10 @@ typedef char (*charFnPtr)();
 typedef char * (*charPtrFnPtr)();
 typedef const char * (*constcharPtrFnPtr)();
 
-const char LIQUIDMENU_VERSION[] = "1.5"; ///< The version of the library.
+const char LIQUIDMENU_VERSION[] = "1.4"; ///< The version of the library.
+
+const uint8_t GLYPH_SIZE = 8;
+const uint8_t MAX_GLYPHS = 4;
 
 /// Data type enum.
 /**
@@ -86,7 +91,7 @@ enum class DataType : uint8_t {
   NOT_USED = 0,
   BOOL = 1, BOOLEAN = 1,
   INT8_T = 8,
-  UINT8_T = 9,
+  UINT8_T = 9, BYTE = 9,
   INT16_T = 16,
   UINT16_T = 17,
   INT32_T = 32,
@@ -118,7 +123,23 @@ enum class Position : uint8_t {
   RIGHT = 1, NORMAL = 1,
   LEFT = 2,
   CUSTOM = 3,
+  LEFTRIGHT = 4
 };
+/// Custom Character enum.
+/*
+ custom glyph values for createChar() and  write().
+*/
+enum class FocusIndicator : uint8_t {
+  RIGHT = 15,
+  LEFT = 14,
+  CUSTOM = 13,
+};
+
+//enum class FocusIndicator : uint8_t {
+//    RIGHT = 0x8b,
+//    LEFT = 0x8d,
+//    CUSTOM = 0xb0,
+//};
 
 /// @name recognizeType overloaded function
 /**
@@ -293,6 +314,14 @@ Used for convenience when printing the class's address for indentification.
 */
 void print_me(uintptr_t address);
 
+uint8_t * rotTile(uint8_t * tile);
+
+template <class Disp> class LiquidLine;
+template <class Disp> class LiquidMenu;
+template <class Disp> class LiquidScreen;
+template <class Disp> class LiquidSystem;
+
+
 
 /// Represents the individual lines printed on the display.
 /**
@@ -302,8 +331,8 @@ where the focus indicator is positioned and pointers to the callback
 functions. This classes' objects go into a LiquidScreen object which
 controls them. The public methods are for configuration only.
 */
-class LiquidLine {
-  friend class LiquidScreen;
+template <class Disp> class LiquidLine {
+  friend class LiquidScreen<Disp>;
 
 public:
   /// @name Constructors
@@ -516,7 +545,7 @@ private:
   @param *p_liquidCrystal - pointer to the DisplayClass object
   @param isFocused - true if this line is focused
   */
-  void print(DisplayClass *p_liquidCrystal, bool isFocused);
+  void print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocuGlyphs[][GLYPH_SIZE], bool isFocused);
 
   /// Prints a variable to the display.
   /**
@@ -526,18 +555,7 @@ private:
   @param *p_liquidCrystal - pointer to the DisplayClass object
   @param number - number identifying the variable
   */
-  void print_variable(DisplayClass *p_liquidCrystal, uint8_t number);
-
-  /// Check if there is an attached function at the specified number.
-  /**
-  @param number - number of the function in the array
-  @returns true if there is a function at the specified number
-
-  @note Function numbering starts from 1.
-
-  @see bool LiquidLine::attach_function(uint8_t number, void (*function)(void))
-  */
-  bool is_callable(uint8_t number) const;
+  void print_variable(Disp *p_liquidCrystal, uint8_t number);
 
   /// Calls an attached function specified by the number.
   /**
@@ -570,8 +588,8 @@ them. The public methods are for configuration only.
 
 @see LiquidLine
 */
-class LiquidScreen {
-  friend class LiquidMenu;
+template <class Disp> class LiquidScreen {
+  friend class LiquidMenu<Disp>;
 
 public:
 
@@ -588,14 +606,14 @@ public:
   /**
   @param &liquidLine - pointer to a LiquidLine object
   */
-  explicit LiquidScreen(LiquidLine &liquidLine);
+  explicit LiquidScreen(LiquidLine<Disp> &liquidLine);
 
   /// Constructor for 2 LiquidLine object.
   /**
   @param &liquidLine1 - pointer to a LiquidLine object
   @param &liquidLine2 - pointer to a LiquidLine object
   */
-  LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2);
+  LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2);
 
   /// Constructor for 3 LiquidLine object.
   /**
@@ -603,8 +621,8 @@ public:
   @param &liquidLine2 - pointer to a LiquidLine object
   @param &liquidLine3 - pointer to a LiquidLine object
   */
-  LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2,
-               LiquidLine &liquidLine3);
+  LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2,
+               LiquidLine<Disp> &liquidLine3);
 
   /// Constructor for 4 LiquidLine object.
   /**
@@ -613,8 +631,8 @@ public:
   @param &liquidLine3 - pointer to a LiquidLine object
   @param &liquidLine4 - pointer to a LiquidLine object
   */
-  LiquidScreen(LiquidLine &liquidLine1, LiquidLine &liquidLine2,
-               LiquidLine &liquidLine3, LiquidLine &liquidLine4);
+  LiquidScreen(LiquidLine<Disp> &liquidLine1, LiquidLine<Disp> &liquidLine2,
+               LiquidLine<Disp> &liquidLine3, LiquidLine<Disp> &liquidLine4);
 
   ///@}
 
@@ -633,7 +651,7 @@ public:
   @see LiquidMenu_config.h
   @see MAX_LINES
   */
-  bool add_line(LiquidLine &liquidLine);
+  bool add_line(LiquidLine<Disp> &liquidLine);
 
   /// Sets the focus position for the whole screen at once.
   /**
@@ -688,7 +706,7 @@ private:
 
   @param *p_liquidCrystal - pointer to the DisplayClass object
   */
-  void print(DisplayClass *p_liquidCrystal) const;
+  void print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocuGlyphs[][GLYPH_SIZE]) const;
 
   /// Switches the focus.
   /**
@@ -699,17 +717,6 @@ private:
   */
   void switch_focus(bool forward = true);
 
-  /// Check if there is an attached function at the specified number.
-  /**
-  @param number - number of the function in the array
-  @returns true if there is a function at the specified number
-
-  @note Function numbering starts from 1.
-
-  @see bool LiquidLine::attach_function(uint8_t number, void (*function)(void))
-  */
-  bool is_callable(uint8_t number) const;
-  
   /// Calls an attached function specified by the number.
   /**
   Calls the function specified by the number argument for the focused line.
@@ -723,7 +730,7 @@ private:
   */
   bool call_function(uint8_t number) const;
 
-  LiquidLine *_p_liquidLine[MAX_LINES]; ///< The LiquidLine objects
+  LiquidLine<Disp> *_p_liquidLine[MAX_LINES]; ///< The LiquidLine objects
   uint8_t _lineCount; ///< Count of the LiquidLine objects
   uint8_t _focus; ///< Index of the focused line
   uint8_t _displayLineCount; ///< The number of lines the display supports
@@ -741,8 +748,8 @@ the same public methods.
 
 @see LiquidScreen
 */
-class LiquidMenu {
-  friend class LiquidSystem;
+template <class Disp> class LiquidMenu {
+  friend class LiquidSystem<Disp>;
 
 public:
 
@@ -757,7 +764,7 @@ public:
   @param startingScreen - the number of the screen that will be shown
   first
   */
-  LiquidMenu(DisplayClass &liquidCrystal, uint8_t startingScreen = 1);
+  LiquidMenu(Disp &liquidCrystal, uint8_t startingScreen = 1);
 
   /// Constructor for 1 LiquidScreen object.
   /**
@@ -766,7 +773,7 @@ public:
   @param startingScreen - the number of the screen that will be shown
   first
   */
-  LiquidMenu(DisplayClass &liquidCrystal, LiquidScreen &liquidScreen,
+  LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen,
              uint8_t startingScreen = 1);
 
   /// Constructor for 2 LiquidScreen objects.
@@ -777,8 +784,8 @@ public:
   @param startingScreen - the number of the screen that will be shown
   first
   */
-  LiquidMenu(DisplayClass &liquidCrystal, LiquidScreen &liquidScreen1,
-             LiquidScreen &liquidScreen2, uint8_t startingScreen = 1);
+  LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen1,
+             LiquidScreen<Disp> &liquidScreen2, uint8_t startingScreen = 1);
 
   /// Constructor for 3 LiquidScreen objects.
   /**
@@ -789,8 +796,8 @@ public:
   @param startingScreen - the number of the screen that will be shown
   first
   */
-  LiquidMenu(DisplayClass &liquidCrystal, LiquidScreen &liquidScreen1,
-             LiquidScreen &liquidScreen2, LiquidScreen &liquidScreen3,
+  LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen1,
+             LiquidScreen<Disp> &liquidScreen2, LiquidScreen<Disp> &liquidScreen3,
              uint8_t startingScreen = 1);
 
   /// Constructor for 4 LiquidScreen objects.
@@ -803,9 +810,9 @@ public:
   @param startingScreen - the number of the screen that will be shown
   first
   */
-  LiquidMenu(DisplayClass &liquidCrystal, LiquidScreen &liquidScreen1,
-             LiquidScreen &liquidScreen2, LiquidScreen &liquidScreen3,
-             LiquidScreen &liquidScreen4, uint8_t startingScreen = 1);
+  LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen1,
+             LiquidScreen<Disp> &liquidScreen2, LiquidScreen<Disp> &liquidScreen3,
+             LiquidScreen<Disp> &liquidScreen4, uint8_t startingScreen = 1);
 
   ///@}
 
@@ -824,7 +831,7 @@ public:
   @see LiquidMenu_config.h
   @see MAX_SCREENS
   */
-  bool add_screen(LiquidScreen &liquidScreen);
+  bool add_screen(LiquidScreen<Disp> &liquidScreen);
 
   /// Returns a reference to the current screen.
   /**
@@ -832,7 +839,7 @@ public:
 
   @returns a reference to the current screen.
   */
-  LiquidScreen* get_currentScreen() const;
+  LiquidScreen<Disp>* get_currentScreen() const;
 
   /// Switches to the next screen.
   void next_screen();
@@ -869,7 +876,7 @@ public:
   @param *p_liquidScreen - pointer to the LiquidScreen object
   @returns true on success and false if the screen is not found
   */
-  bool change_screen(LiquidScreen &p_liquidScreen);
+  bool change_screen(LiquidScreen<Disp> &p_liquidScreen);
 
   /// Switches to the specified screen.
   /**
@@ -884,7 +891,7 @@ public:
   @param &p_liquidScreen - pointer to the screen
   @returns true on success and false if the screen is not found
   */
-  bool operator=(LiquidScreen &p_liquidScreen);
+  bool operator=(LiquidScreen<Disp> &p_liquidScreen);
 
   /// Switches to the specified screen.
   /**
@@ -935,18 +942,22 @@ public:
   @see Position
   */
   bool set_focusSymbol(Position position, uint8_t symbol[8]);
-
-  /// Check if there is an attached function at the specified number.
-  /**
-  @param number - number of the function in the array
-  @returns true if there is a function at the specified number
-
-  @note Function numbering starts from 1.
-
-  @see bool LiquidLine::attach_function(uint8_t number, void (*function)(void))
-  */
-  bool is_callable(uint8_t number) const;
-
+    /// Changes the focus indicator's character glyph.
+    /**
+     The character printed is changed for a particular position.
+     
+     @param position - the position for which the symbol will be changed
+     @param glyph - the character
+     @returns true on success and false if the position specified is
+     invalid
+     
+     @note The `Position` is enum class. Use `Position::(member)` when
+     specifying the position.
+     
+     @see Position
+     */
+    bool set_focusGlyph(Position position, uint8_t glyph);
+    
   /// Calls an attached function specified by the number.
   /**
   Calls the function specified by the number argument for the current
@@ -987,8 +998,10 @@ public:
   ///@}
 
 private:
-  DisplayClass *_p_liquidCrystal; ///< Pointer to the DisplayClass object
-  LiquidScreen *_p_liquidScreen[MAX_SCREENS]; ///< The LiquidScreen objects
+  Disp *_p_liquidCrystal; ///< Pointer to the DisplayClass object
+  LiquidScreen<Disp> *_p_liquidScreen[MAX_SCREENS]; ///< The LiquidScreen objects
+  uint8_t _focusGlyphs[MAX_GLYPHS];
+  uint8_t _customFocusGlyphs[MAX_GLYPHS][GLYPH_SIZE];
   uint8_t _screenCount; ///< Count of the LiquidScreen objects
   uint8_t _currentScreen;
 };
@@ -1005,7 +1018,7 @@ for multiple menus.
 
 @see LiquidMenu
 */
-class LiquidSystem {
+template <class Disp> class LiquidSystem {
 public:
 
   /// @name Constructors
@@ -1025,7 +1038,7 @@ public:
   @param &liquidMenu2 - pointer to a LiquidMenu object
   @param startingMenu - the number of the menu that will be shown first
   */
-  LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
+  LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
                uint8_t startingMenu = 1);
 
   /// Constructor for 3 LiquidMenu objects.
@@ -1035,8 +1048,8 @@ public:
   @param &liquidMenu3 - pointer to a LiquidMenu object
   @param startingMenu - the number of the menu that will be shown first
   */
-  LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
-               LiquidMenu &liquidMenu3, uint8_t startingMenu = 1);
+  LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
+               LiquidMenu<Disp> &liquidMenu3, uint8_t startingMenu = 1);
 
   /// Constructor for 4 LiquidMenu objects.
   /**
@@ -1046,8 +1059,8 @@ public:
   @param &liquidMenu4 - pointer to a LiquidMenu object
   @param startingMenu - the number of the menu that will be shown first
   */
-  LiquidSystem(LiquidMenu &liquidMenu1, LiquidMenu &liquidMenu2,
-               LiquidMenu &liquidMenu3, LiquidMenu &liquidMenu4,
+  LiquidSystem(LiquidMenu<Disp> &liquidMenu1, LiquidMenu<Disp> &liquidMenu2,
+               LiquidMenu<Disp> &liquidMenu3, LiquidMenu<Disp> &liquidMenu4,
                uint8_t startingMenu = 1);
 
   ///@}
@@ -1067,14 +1080,14 @@ public:
   @see LiquidMenu_config.h
   @see MAX_MENUS
   */
-  bool add_menu(LiquidMenu &liquidMenu);
+  bool add_menu(LiquidMenu<Disp> &liquidMenu);
 
   /// Switches to the specified menu.
   /**
   @param *p_liquidMenu - pointer to the LiquidMenu object
   @returns true on success and false if the menu is not found
   */
-  bool change_menu(LiquidMenu &p_liquidMenu);
+  bool change_menu(LiquidMenu<Disp> &p_liquidMenu);
 
   /// Returns a reference to the current screen.
   /**
@@ -1082,7 +1095,7 @@ public:
 
   @returns a reference to the current screen.
   */
-  LiquidScreen* get_currentScreen() const;
+  LiquidScreen<Disp>* get_currentScreen() const;
 
   /// Switches to the next screen.
   void next_screen();
@@ -1119,7 +1132,7 @@ public:
   @param *p_liquidScreen - pointer to the LiquidScreen object
   @returns true on success and false if the screen is not found
   */
-  bool change_screen(LiquidScreen &p_liquidScreen);
+  bool change_screen(LiquidScreen<Disp> &p_liquidScreen);
 
   /// Switches to the specified screen.
   /**
@@ -1134,7 +1147,7 @@ public:
   @param &p_liquidScreen - pointer to the screen
   @returns true on success and false if the screen is not found
   */
-  bool operator=(LiquidScreen &p_liquidScreen);
+  bool operator=(LiquidScreen<Disp> &p_liquidScreen);
 
   /// Switches to the specified screen.
   /**
@@ -1186,16 +1199,21 @@ public:
   */
   bool set_focusSymbol(Position position, uint8_t symbol[8]);
 
-  /// Check if there is an attached function at the specified number.
-  /**
-  @param number - number of the function in the array
-  @returns true if there is a function at the specified number
-
-  @note Function numbering starts from 1.
-
-  @see bool LiquidLine::attach_function(uint8_t number, void (*function)(void))
-  */
-  bool is_callable(uint8_t number) const;
+    /// Changes the focus indicator's glyph character.
+    /**
+     The glyph is changed for a particular position.
+     
+     @param position - the position for which the character will be changed
+     @param glyph - the glyph character
+     @returns true on success and false if the position specified is
+     invalid
+     
+     @note The `Position` is enum class. Use `Position::(member)` when
+     specifying the position.
+     
+     @see Position
+     */
+    bool set_focusGlyph(Position position, uint8_t glyph);
 
   /// Calls an attached function specified by the number.
   /**
@@ -1229,7 +1247,14 @@ public:
   ///@}
 
 private:
-  LiquidMenu *_p_liquidMenu[MAX_MENUS]; ///< The LiquidMenu objects
+  LiquidMenu<Disp> *_p_liquidMenu[MAX_MENUS]; ///< The LiquidMenu objects
   uint8_t _menuCount; ///< Count of the LiquidMenu objects
   uint8_t _currentMenu;
 };
+
+#include "LiquidMenu_Impl.h"
+#include "LiquidScreen_Impl.h"
+#include "LiquidLine_Impl.h"
+#include "LiquidSystem_Impl.h"
+
+
