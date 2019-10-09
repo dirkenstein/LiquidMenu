@@ -34,7 +34,7 @@ void print_me(uintptr_t address) {
 	address = address;
 }
 
-uint8_t * rotTile(uint8_t * tile) {
+uint8_t * rotTile(const uint8_t * tile) {
     uint8_t * newt = new uint8_t[8];
     for (int x = 0; x < 8; x++) {
         uint8_t newb = 0;

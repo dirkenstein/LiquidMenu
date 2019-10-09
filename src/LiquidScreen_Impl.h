@@ -107,7 +107,7 @@ void LiquidScreen<Disp>::hide(bool hide) {
 }
 
 template <class Disp>
-void LiquidScreen<Disp>::print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocusGlyphs[][GLYPH_SIZE]) const {
+void LiquidScreen<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[], uint8_t const customFocusGlyphs[][GLYPH_SIZE]) const {
 	uint8_t lOffset = 0;
 	uint8_t displayLineCount = _displayLineCount;
 	if (displayLineCount == 0)

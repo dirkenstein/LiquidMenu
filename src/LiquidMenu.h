@@ -314,7 +314,7 @@ Used for convenience when printing the class's address for indentification.
 */
 void print_me(uintptr_t address);
 
-uint8_t * rotTile(uint8_t * tile);
+uint8_t * rotTile(const uint8_t * tile);
 
 template <class Disp> class LiquidLine;
 template <class Disp> class LiquidMenu;
@@ -545,7 +545,7 @@ private:
   @param *p_liquidCrystal - pointer to the DisplayClass object
   @param isFocused - true if this line is focused
   */
-  void print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocuGlyphs[][GLYPH_SIZE], bool isFocused);
+  void print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[], const uint8_t customFocuGlyphs[][GLYPH_SIZE], bool isFocused);
 
   /// Prints a variable to the display.
   /**
@@ -706,7 +706,7 @@ private:
 
   @param *p_liquidCrystal - pointer to the DisplayClass object
   */
-  void print(Disp *p_liquidCrystal, uint8_t focusGlyphs[], uint8_t customFocuGlyphs[][GLYPH_SIZE]) const;
+  void print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[], const uint8_t customFocuGlyphs[][GLYPH_SIZE]) const;
 
   /// Switches the focus.
   /**

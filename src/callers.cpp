@@ -10,3 +10,14 @@ void CallDrawTile(...)
     Serial.println("DrawTileStub");
     return;
 }
+
+uint8_t CallGetX(...)
+{
+    return 0;
+}
+
+
+uint8_t CallGetY(...)
+{
+    return 0;
+}
