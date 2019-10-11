@@ -26,28 +26,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 #include "LiquidMenu.h"
 #include "glyphs.h"
+#include <type_traits>
+#include<Arduino.h>
+
 #pragma once
 
-
 const uint8_t DIVISION_LINE_LENGTH = 40; ///< Sets the length of the division line.
+
+//SFINAE Test for DrawTile
+
+template <typename T>
+class HasCreateChar
+{
+private:
+    typedef char YesType[1];
+    typedef char NoType[2];
+    template <typename C> static YesType& test( decltype(static_cast<void(C::*)(uint8_t,  uint8_t *)>(&C::createChar)) ) ; //&C::createChar
+    template <typename C> static NoType& test(...);
+    
+    
+public:
+    enum { value = sizeof(test<T>(0)) == sizeof(YesType) };
+    
+};
+
+template<typename T>
+typename std::enable_if<HasCreateChar<T>::value, void>::type
+CallCreateChar(T *t, uint8_t c, uint8_t *tile_ptr) {
+    /* something when T has drawTile ... */
+    t->createChar(c, tile_ptr);
+}
+void CallCreateChar(...);
 
 template <class Disp>
 LiquidMenu<Disp>::LiquidMenu(Disp &liquidCrystal, uint8_t startingScreen)
   : _p_liquidCrystal(&liquidCrystal), _screenCount(0),
     _currentScreen(startingScreen - 1) {
-    for(int x = 0; x < GLYPH_SIZE; x++) {
-        _customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)][x] = glyph::rightFocus[x];
-        _customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)][x] = glyph::leftFocus[x];
-        _customFocusGlyphs[static_cast<uint8_t>(Position::CUSTOM)][x] = glyph::customFocus[x];
-    }
-    _focusGlyphs[static_cast<uint8_t>(Position::RIGHT)] = static_cast<uint8_t>(FocusIndicator::RIGHT);
-    _focusGlyphs[static_cast<uint8_t>(Position::LEFT)] = static_cast<uint8_t>(FocusIndicator::LEFT);
-    _focusGlyphs[static_cast<uint8_t>(Position::CUSTOM)] = static_cast<uint8_t>(FocusIndicator::CUSTOM);
-
-//#ifndef I2C
+#ifndef I2C
+        init();
+#endif
+//
 // _p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::RIGHT), glyph::rightFocus);
 //  _p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::LEFT), glyph::leftFocus);
 //  _p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::CUSTOM), glyph::customFocus);
@@ -58,14 +78,14 @@ template <class Disp>
 LiquidMenu<Disp>::LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen,
                        uint8_t startingScreen)
   : LiquidMenu(liquidCrystal, startingScreen) {
-  add_screen(liquidScreen);
+      add_screen(liquidScreen);
 }
 
 template <class Disp>
 LiquidMenu<Disp>::LiquidMenu(Disp &liquidCrystal, LiquidScreen<Disp> &liquidScreen1,
                        LiquidScreen<Disp> &liquidScreen2, uint8_t startingScreen)
   : LiquidMenu(liquidCrystal, liquidScreen1, startingScreen) {
-  add_screen(liquidScreen2);
+      add_screen(liquidScreen2);
 }
 
 template <class Disp>
@@ -316,10 +336,17 @@ void LiquidMenu<Disp>::softUpdate() const {
 }
 
 template <class Disp>
-void LiquidMenu<Disp>::init() const {
+void LiquidMenu<Disp>::init() {
   //_p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::RIGHT), glyph::rightFocus);
   //_p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::LEFT), glyph::leftFocus);
   //_p_liquidCrystal->createChar(static_cast<uint8_t>(FocusIndicator::CUSTOM), glyph::customFocus);
+    Serial.print("HasCreateChar ");
+    Serial.println(HasCreateChar<Disp>::value);
+    if (HasCreateChar<Disp>::value) {
+        CallCreateChar(_p_liquidCrystal, static_cast<uint8_t>(FocusIndicator::RIGHT), glyph::rightFocus);
+        CallCreateChar(_p_liquidCrystal, static_cast<uint8_t>(FocusIndicator::LEFT), glyph::leftFocus);
+        CallCreateChar(_p_liquidCrystal, static_cast<uint8_t>(FocusIndicator::CUSTOM), glyph::customFocus);
+    }
     for(int x = 0; x < GLYPH_SIZE; x++) {
         _customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)][x] = glyph::rightFocus[x];
         _customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)][x] = glyph::leftFocus[x];

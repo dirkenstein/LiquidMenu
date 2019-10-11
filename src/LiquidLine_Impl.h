@@ -28,32 +28,11 @@ Contains the LiquidLine class definition.
 */
 
 #include "LiquidMenu.h"
-#include <Arduino.h>
+#include <type_traits>
 #pragma once
 
-//SFINAE test for createChar
-template <typename T>
-class HasCreateChar
-{
-private:
-    typedef char YesType[1];
-    typedef char NoType[2];
-    
-    template <typename C> static YesType& test( decltype(&C::createChar) ) ;
-    template <typename C> static NoType& test(...);
-    
-    
-public:
-    enum { value = sizeof(test<T>(0)) == sizeof(YesType) };
-};
 
-template<typename T>
-typename std::enable_if<HasCreateChar<T>::value, void>::type
-CallCreateChar(T * t, uint8_t c, uint8_t g[]) {
-    /* something when T has toString ... */
-    t->createChar( c, g);
-    return;
-}
+//SFINAE Test for DrawTile
 
 template <typename T>
 class HasDrawTile
@@ -69,14 +48,12 @@ private:
 public:
     enum { value = sizeof(test<T>(0)) == sizeof(YesType) };
 };
-void CallCreateChar(...);
 
 template<typename T>
 typename std::enable_if<HasDrawTile<T>::value, void>::type
 CallDrawTile(T *t, uint8_t x, uint8_t y, int cnt, const uint8_t *tile_ptr) {
     /* something when T has drawTile ... */
     t->drawTile( x,  y,  cnt, tile_ptr);
-    return;
 }
 void CallDrawTile(...);
 
@@ -173,7 +150,6 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
 	}
     
 	DEBUGLN();
-    //Serial.print(F("CreateChar ")); Serial.println(HasCreateChar<Disp>::value);
     //Serial.print(F("DrawTile ")); Serial.println(HasDrawTile<Disp>::value);
 	if (isFocused) {
 		DEBUG(F("\t\t<Focus position: "));
@@ -182,18 +158,14 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
             uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::RIGHT) ];
             const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
             if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile (g);
 
                     CallDrawTile(p_liquidCrystal, CallGetX(p_liquidCrystal), CallGetY(p_liquidCrystal), 1, rot);
-                    //p_liquidCrystal->drawTile(p_liquidCrystal->tx, p_liquidCrystal->ty, 1, g);
                     delete rot;
 
                 } else {
+
                     p_liquidCrystal->write(c);
                 }
             } else {
@@ -207,16 +179,11 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
 			//p_liquidCrystal->print(NOTHING);
 			p_liquidCrystal->setCursor(_column - 1, _row);
             uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::LEFT) ];
-            const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)];
+           const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)];
             if (c == static_cast<uint8_t>(FocusIndicator::LEFT)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-                    
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile (g);
                     CallDrawTile(p_liquidCrystal, _column -1, _row, 1, rot);
-                    //p_liquidCrystal->drawTile(_column -1, _row, 1, g);
                     delete rot;
                 } else {
                     p_liquidCrystal->write(c);
@@ -231,11 +198,7 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
             uint8_t c = focusGlyphs[static_cast<uint8_t>(Position::RIGHT) ];
             const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
             if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-                    
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile (g);
                      CallDrawTile(p_liquidCrystal, CallGetX(p_liquidCrystal), CallGetY(p_liquidCrystal), 1, rot);
                     //p_liquidCrystal->drawTile(p_liquidCrystal->tx, p_liquidCrystal->ty, 1, g);
@@ -252,11 +215,7 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
             c = focusGlyphs[static_cast<uint8_t>(Position::LEFT) ];
             g = customFocusGlyphs[static_cast<uint8_t>(Position::LEFT)];
             if (c == static_cast<uint8_t>(FocusIndicator::LEFT)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-                    
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile (g);
                     CallDrawTile(p_liquidCrystal, _column -1, _row, 1, rot);
                     //p_liquidCrystal->drawTile(_column -1, _row, 1, g);
@@ -277,11 +236,7 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
             const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::CUSTOM)];
 
             if (c == static_cast<uint8_t>(FocusIndicator::CUSTOM)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-                    
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile (g);
                     CallDrawTile(p_liquidCrystal, _focusColumn, _focusRow, 1, rot);
                     //p_liquidCrystal->drawTile( _focusColumn, _focusRow, 1, g);
@@ -303,11 +258,7 @@ void LiquidLine<Disp>::print(Disp *p_liquidCrystal, const uint8_t focusGlyphs[],
             const uint8_t * g = customFocusGlyphs[static_cast<uint8_t>(Position::RIGHT)];
 			_focusPosition = Position::NORMAL;
             if (c == static_cast<uint8_t>(FocusIndicator::RIGHT)) {
-                if(HasCreateChar<Disp>::value) {
-                    CallCreateChar(p_liquidCrystal, c, g);
-                    p_liquidCrystal->write(c);
-                    
-                } else if (HasDrawTile<Disp>::value) {
+                if (HasDrawTile<Disp>::value) {
                     uint8_t * rot = rotTile(g);
                      CallDrawTile(p_liquidCrystal, CallGetX(p_liquidCrystal), CallGetY(p_liquidCrystal), 1, rot);
                     delete rot;
